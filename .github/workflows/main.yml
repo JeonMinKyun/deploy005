@@ -1,71 +1,102 @@
-name: Java & React CI/CD with Docker
-
+---
+name: Java & React CI/CD and Deploy
 on:
   push:
-    branches: [ "main" ]
-
+    branches:
+      - main
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: temurin
+          cache: maven
+      - name: Build Backend (Maven)
+        run: mvn clean package -DskipTests -f ./deploy005_springboo_react/pom.xml
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: ./deploy_front/package-lock.json
+      - name: Build Frontend (NPM)
+        run: |
+          cd deploy_front
+          npm install
+          npm run build
+      - name: Build and push Backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./deploy005_springboo_react
+          file: ./deploy005_springboo_react/Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ secrets.DOCKER_USERNAME }}/deploy005_springboot:latest
+      - name: Build and push Frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./deploy_front
+          file: ./deploy_front/Dockerfile
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ secrets.DOCKER_USERNAME }}/deploy_front:latest
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH Remote Commands
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          password: ${{ secrets.SERVER_PASSWORD }}
+          port: ${{ secrets.SERVER_PORT }}
+          script: >
+            # 1. 네트워크 생성 (이미 있으면 무시)
 
-    # --- 공통 설정 (QEMU, Buildx, Login) ---
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@v3
+            docker network create app-network || true
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
 
-    - name: Login to Docker Hub
-      uses: docker/login-action@v3
-      with:
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
+            # 2. 기존 컨테이너 중지 및 삭제
 
-    # --- [BACKEND] Java 빌드 (JAR 생성) ---
-    - name: Set up JDK 21
-      uses: actions/setup-java@v4
-      with:
-        java-version: '21'
-        distribution: 'temurin'
-        cache: maven
+            docker stop springboot_server react_front || true
 
-    - name: Build Backend (Maven)
-      run: mvn clean package -DskipTests -f ./deploy005_springboo_react/pom.xml
+            docker rm springboot_server react_front || true
 
-    # --- [FRONTEND] React 빌드 (Dist 생성) ---
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        cache: 'npm'
-        cache-dependency-path: './deploy_front/package-lock.json'
 
-    - name: Build Frontend (NPM)
-      run: |
-        cd deploy_front
-        npm install
-        npm run build
+            # 3. 최신 이미지 Pull
 
-    # --- [DOCKER PUSH] Backend ---
-    - name: Build and push Backend image
-      uses: docker/build-push-action@v5
-      with:
-        context: ./deploy005_springboo_react
-        file: ./deploy005_springboo_react/Dockerfile
-        push: true
-        platforms: linux/amd64,linux/arm64
-        tags: ${{ secrets.DOCKER_USERNAME }}/deploy005_springboot:latest
+            docker pull ${{ secrets.DOCKER_USERNAME }}/deploy005_springboot:latest
 
-    # --- [DOCKER PUSH] Frontend ---
-    - name: Build and push Frontend image
-      uses: docker/build-push-action@v5
-      with:
-        context: ./deploy_front
-        file: ./deploy_front/Dockerfile
-        push: true
-        platforms: linux/amd64,linux/arm64
-        tags: ${{ secrets.DOCKER_USERNAME }}/deploy_front:latest
+            docker pull ${{ secrets.DOCKER_USERNAME }}/deploy_front:latest
+
+
+            # 4. 컨테이너 실행
+
+            docker run -d --name springboot_server \
+              -p 8080:8080 \
+              --network app-network \
+              ${{ secrets.DOCKER_USERNAME }}/deploy005_springboot:latest
+
+            docker run -d --name react_front \
+              -p 5173:80 \
+              --network app-network \
+              ${{ secrets.DOCKER_USERNAME }}/deploy_front:latest
+
+            # 5. 미사용 이미지 정리
+
+            docker image prune -f
