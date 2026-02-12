@@ -5,7 +5,7 @@ function App() {
   const [message, setMessage] = useState('');
 
   useEffect (() =>{
-    fetch("http://localhost:8080/")
+    fetch("https://64e2-1-11-163-250.ngrok-free.app/")
     .then((response => response.text()))
     .then(data =>{
       setMessage(data)
