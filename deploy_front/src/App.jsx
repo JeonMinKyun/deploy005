@@ -5,7 +5,11 @@ function App() {
   const [message, setMessage] = useState('');
 
   useEffect (() =>{
-    fetch("https://a9c9-1-11-163-250.ngrok-free.app/")
+    fetch("https://a9c9-1-11-163-250.ngrok-free.app/",{
+		headers: {
+		    "ngrok-skip-browser-warning": "69420" // 이 헤더가 있으면 ngrok 경고창을 건너뜁니다.
+		  }
+	})
     .then((response => response.text()))
     .then(data =>{
       setMessage(data)
