@@ -6,7 +6,7 @@ FROM nginx:stable-alpine
 COPY dist /usr/share/nginx/html
 
 # 핵심: 작성하신 nginx.conf를 Nginx 설정 디렉토리로 복사
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+#COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Nginx 기본 포트
 EXPOSE 80

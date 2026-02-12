@@ -5,7 +5,7 @@ function App() {
   const [message, setMessage] = useState('');
 
   useEffect (() =>{
-    fetch("/api")
+    fetch("https://a9c9-1-11-163-250.ngrok-free.app/")
     .then((response => response.text()))
     .then(data =>{
       setMessage(data)
