@@ -5,6 +5,9 @@ FROM nginx:stable-alpine
 # (Vite 기준 dist, Create React App 기준 build 폴더)
 COPY dist /usr/share/nginx/html
 
+# 핵심: 작성하신 nginx.conf를 Nginx 설정 디렉토리로 복사
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
 # Nginx 기본 포트
 EXPOSE 80
 

@@ -5,14 +5,14 @@ function App() {
   const [message, setMessage] = useState('');
 
   useEffect (() =>{
-    fetch("http://springboot_server:8080/")
+    fetch("/")
     .then((response => response.text()))
     .then(data =>{
       setMessage(data)
     })
     .catch((error)=>{
       console.log("에러발생:"+error );
-    })
+    },[])
   }
 )
   return (
