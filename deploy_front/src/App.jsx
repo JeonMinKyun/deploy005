@@ -5,7 +5,7 @@ function App() {
   const [message, setMessage] = useState('');
 
   useEffect (() =>{
-    fetch("https://64e2-1-11-163-250.ngrok-free.app/")
+    fetch("http://springboot_server:8080")
     .then((response => response.text()))
     .then(data =>{
       setMessage(data)
